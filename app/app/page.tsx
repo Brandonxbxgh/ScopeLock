@@ -262,8 +262,11 @@ export default function App() {
                   key={project.id}
                   className="flex items-center justify-between rounded-lg border border-zinc-200 p-4 dark:border-zinc-700"
                 >
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-zinc-900 dark:text-zinc-50">
+                  <div
+                    className="flex-1 cursor-pointer"
+                    onClick={() => router.push(`/projects/${project.id}`)}
+                  >
+                    <h3 className="font-semibold text-zinc-900 hover:text-zinc-700 dark:text-zinc-50 dark:hover:text-zinc-300">
                       {project.name}
                     </h3>
                     <div className="mt-1 flex flex-wrap gap-4 text-sm text-zinc-600 dark:text-zinc-400">

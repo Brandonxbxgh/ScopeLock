@@ -59,11 +59,20 @@ npm run dev
   - Feature limit (minimum 1)
 - Projects are user-scoped (each user sees only their own projects)
 - Projects are ordered by creation date (most recent first)
+- Click on a project to view its details and manage features
+
+### Features Management (ScopeLock)
+- View all features for a project
+- Create new features with title and status (planned, in_progress, done)
+- Update feature status
+- Delete features
+- **ScopeLock Enforcement**: When the number of open features (status != 'done') reaches the project's feature limit, the system prevents adding new features until at least one feature is marked as done
 
 ### Routes
 - `/` - Home page with app navigation
 - `/login` - Authentication page for signing in with email
 - `/app` - Protected dashboard with Projects CRUD (requires authentication)
+- `/projects/[id]` - Project detail page with Features CRUD and ScopeLock enforcement
 
 ## Testing Locally
 
@@ -90,10 +99,35 @@ After signing in (see Testing Authentication above), you can test the Projects f
      - Feature limit (required, number, minimum value is 1)
    - Click "Create Project"
    - The new project will appear in the projects list below
-3. **Delete a project**:
+3. **View project details**: Click on any project in the list to navigate to its detail page
+4. **Delete a project**:
    - Click the "Delete" button next to any project
    - Confirm the deletion in the prompt
    - The project will be removed from the list
+
+### Testing Features CRUD and ScopeLock
+
+After creating a project (see Testing Projects CRUD above):
+
+1. **Navigate to project details**: Click on a project from the `/app` page
+2. **View project information**: The detail page shows the project name, deadline, feature limit, and current open features count
+3. **Create a feature**:
+   - Fill in the "Create Feature" form with:
+     - Feature title (required, text field)
+     - Status (select from: Planned, In Progress, Done)
+   - Click "Create Feature"
+   - The new feature will appear in the features list below
+4. **Test ScopeLock**:
+   - Create features until the number of open features (status != 'done') reaches the feature limit
+   - Try to create another feature - the form will be disabled
+   - A warning message will appear: "Scope locked — mark a feature done to add another."
+   - Change the status of a feature to "Done"
+   - The form will become enabled again, allowing you to create new features
+5. **Update feature status**: Use the status dropdown next to each feature to change its status
+6. **Delete a feature**:
+   - Click the "Delete" button next to any feature
+   - Confirm the deletion in the prompt
+   - The feature will be removed from the list
 
 **Database Requirements:**
 - The `public.projects` table must exist in your Supabase database with columns:
@@ -103,4 +137,13 @@ After signing in (see Testing Authentication above), you can test the Projects f
   - `deadline` (timestamptz)
   - `feature_limit` (int)
   - `created_at` (timestamptz)
-- Row Level Security (RLS) policies should be configured to allow users to manage only their own projects
+- The `public.features` table must exist in your Supabase database with columns:
+  - `id` (uuid, primary key)
+  - `user_id` (uuid, foreign key to auth.users)
+  - `project_id` (uuid, foreign key to projects)
+  - `title` (text)
+  - `status` (text, check constraint for 'planned', 'in_progress', 'done')
+  - `created_at` (timestamptz)
+- Row Level Security (RLS) policies should be configured to allow users to manage only their own projects and features
+
+See `features-table.sql` in the repository root for the complete features table schema.
