@@ -216,7 +216,7 @@ export default function ProjectDetail() {
                   You are Blocked
                 </h3>
                 <p className="mt-2 text-base font-semibold text-red-800 dark:text-red-300">
-                  You chose too many open features ({openFeaturesCount}/{project.feature_limit}). You chose this limit. Finish something to continue.
+                  You have too many open features ({openFeaturesCount}/{project.feature_limit}). You chose this limit. Finish something to continue.
                 </p>
               </div>
             </div>
