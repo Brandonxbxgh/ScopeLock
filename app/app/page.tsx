@@ -4,12 +4,14 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import type { User } from '@supabase/supabase-js';
-import type { Project } from '@/lib/types';
+import type { Project, Feature, ProjectStatus } from '@/lib/types';
+import { computeProjectStatus } from '@/lib/types';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [projectFeatures, setProjectFeatures] = useState<Record<string, Feature[]>>({});
   const [projectsLoading, setProjectsLoading] = useState(false);
   const [projectsError, setProjectsError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -64,7 +66,40 @@ export default function App() {
       if (error) {
         setProjectsError(error.message);
       } else {
-        setProjects(data || []);
+        const projectsList = data || [];
+        
+        // Fetch features for all projects
+        const { data: featuresData } = await supabase
+          .from('features')
+          .select('*')
+          .eq('user_id', user?.id);
+
+        // Group features by project_id
+        const featuresMap: Record<string, Feature[]> = {};
+        (featuresData || []).forEach((feature: Feature) => {
+          if (!featuresMap[feature.project_id]) {
+            featuresMap[feature.project_id] = [];
+          }
+          featuresMap[feature.project_id].push(feature);
+        });
+        
+        setProjectFeatures(featuresMap);
+
+        // Sort projects by status: Blocked → In Progress → Planning → Completed
+        const statusOrder: Record<ProjectStatus, number> = {
+          'Blocked': 0,
+          'In Progress': 1,
+          'Planning': 2,
+          'Completed': 3,
+        };
+
+        const sortedProjects = projectsList.sort((a, b) => {
+          const statusA = computeProjectStatus(featuresMap[a.id] || [], a.feature_limit);
+          const statusB = computeProjectStatus(featuresMap[b.id] || [], b.feature_limit);
+          return statusOrder[statusA] - statusOrder[statusB];
+        });
+
+        setProjects(sortedProjects);
       }
     } catch {
       setProjectsError('Failed to fetch projects');
@@ -146,9 +181,41 @@ export default function App() {
     return null;
   }
 
+  // Find blocked projects
+  const blockedProjects = projects.filter(project => {
+    const features = projectFeatures[project.id] || [];
+    return computeProjectStatus(features, project.feature_limit) === 'Blocked';
+  });
+
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black">
       <div className="mx-auto max-w-4xl px-4 py-8">
+        {/* Blocked Projects Warning Banner */}
+        {blockedProjects.length > 0 && (
+          <div className="mb-6 rounded-lg border-4 border-red-600 bg-red-50 p-6 dark:bg-red-950">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg className="h-8 w-8 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+              </div>
+              <div className="ml-4 flex-1">
+                <h3 className="text-xl font-bold text-red-900 dark:text-red-200">
+                  {blockedProjects.length} {blockedProjects.length === 1 ? 'Project is' : 'Projects are'} Blocked
+                </h3>
+                <p className="mt-2 text-base font-semibold text-red-800 dark:text-red-300">
+                  You are blocked because you chose too many open features. You chose this limit. Finish something to continue.
+                </p>
+                <ul className="mt-3 list-disc list-inside space-y-1 text-sm text-red-800 dark:text-red-300">
+                  {blockedProjects.map(project => (
+                    <li key={project.id} className="font-medium">{project.name}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <div>
@@ -257,33 +324,59 @@ export default function App() {
 
           {!projectsLoading && !projectsError && projects.length > 0 && (
             <div className="space-y-4">
-              {projects.map((project) => (
-                <div
-                  key={project.id}
-                  className="flex items-center justify-between rounded-lg border border-zinc-200 p-4 dark:border-zinc-700"
-                >
+              {projects.map((project) => {
+                const features = projectFeatures[project.id] || [];
+                const status = computeProjectStatus(features, project.feature_limit);
+                const openFeaturesCount = features.filter(f => f.status !== 'done').length;
+                
+                // Status badge styling
+                const statusStyles: Record<ProjectStatus, string> = {
+                  'Blocked': 'bg-red-100 text-red-800 border-red-300 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700',
+                  'In Progress': 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700',
+                  'Planning': 'bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-700',
+                  'Completed': 'bg-green-100 text-green-800 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700',
+                };
+
+                return (
                   <div
-                    className="flex-1 cursor-pointer"
-                    onClick={() => router.push(`/projects/${project.id}`)}
+                    key={project.id}
+                    className={`flex items-center justify-between rounded-lg border p-4 ${
+                      status === 'Blocked' 
+                        ? 'border-red-400 bg-red-50 dark:border-red-700 dark:bg-red-950/20' 
+                        : 'border-zinc-200 dark:border-zinc-700'
+                    }`}
                   >
-                    <h3 className="font-semibold text-zinc-900 hover:text-zinc-700 dark:text-zinc-50 dark:hover:text-zinc-300">
-                      {project.name}
-                    </h3>
-                    <div className="mt-1 flex flex-wrap gap-4 text-sm text-zinc-600 dark:text-zinc-400">
-                      <span>
-                        Deadline: {new Date(project.deadline).toLocaleDateString()}
-                      </span>
-                      <span>Feature Limit: {project.feature_limit}</span>
+                    <div
+                      className="flex-1 cursor-pointer"
+                      onClick={() => router.push(`/projects/${project.id}`)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <h3 className="font-semibold text-zinc-900 hover:text-zinc-700 dark:text-zinc-50 dark:hover:text-zinc-300">
+                          {project.name}
+                        </h3>
+                        <span className={`px-2 py-1 text-xs font-bold border rounded ${statusStyles[status]}`}>
+                          {status.toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex flex-wrap gap-4 text-sm text-zinc-600 dark:text-zinc-400">
+                        <span>
+                          Deadline: {new Date(project.deadline).toLocaleDateString()}
+                        </span>
+                        <span>Feature Limit: {project.feature_limit}</span>
+                        <span className={status === 'Blocked' ? 'font-semibold text-red-700 dark:text-red-400' : ''}>
+                          Open Features: {openFeaturesCount}/{project.feature_limit}
+                        </span>
+                      </div>
                     </div>
+                    <button
+                      onClick={() => handleDeleteProject(project.id)}
+                      className="ml-4 rounded-md bg-red-600 px-3 py-1 text-sm font-semibold text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                    >
+                      Delete
+                    </button>
                   </div>
-                  <button
-                    onClick={() => handleDeleteProject(project.id)}
-                    className="ml-4 rounded-md bg-red-600 px-3 py-1 text-sm font-semibold text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-                  >
-                    Delete
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

@@ -119,7 +119,7 @@ export default function ProjectDetail() {
 
     // Client-side ScopeLock enforcement
     if (isScopeLocked) {
-      setFormError('Scope locked — mark a feature done to add another.');
+      setFormError('You chose this limit. Finish something to continue.');
       setFormSubmitting(false);
       return;
     }
@@ -202,6 +202,28 @@ export default function ProjectDetail() {
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black">
       <div className="mx-auto max-w-4xl px-4 py-8">
+        {/* Blocked Warning Banner */}
+        {isScopeLocked && (
+          <div className="mb-6 rounded-lg border-4 border-red-600 bg-red-50 p-6 dark:bg-red-950">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg className="h-8 w-8 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+              </div>
+              <div className="ml-4 flex-1">
+                <h3 className="text-xl font-bold text-red-900 dark:text-red-200">
+                  You are Blocked
+                </h3>
+                <p className="mt-2 text-base font-semibold text-red-800 dark:text-red-300">
+                  You chose too many open features ({openFeaturesCount}/{project.feature_limit}). 
+                  You chose this limit. Finish something to continue.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="mb-8">
           <button
@@ -266,9 +288,9 @@ export default function ProjectDetail() {
             )}
 
             {isScopeLocked && (
-              <div className="rounded-md bg-yellow-50 p-3 dark:bg-yellow-900/20">
-                <p className="text-sm text-yellow-800 dark:text-yellow-400">
-                  Scope locked — mark a feature done to add another.
+              <div className="rounded-md bg-red-50 p-3 dark:bg-red-900/20">
+                <p className="text-sm font-semibold text-red-800 dark:text-red-400">
+                  You chose this limit. Finish something to continue.
                 </p>
               </div>
             )}
