@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import type { User } from '@supabase/supabase-js';
 import type { Project, Feature } from '@/lib/types';
+import { computeProjectStatus } from '@/lib/projectStatus';
 
 export default function ProjectDetail() {
   const [user, setUser] = useState<User | null>(null);
@@ -111,6 +112,7 @@ export default function ProjectDetail() {
   // Calculate if scope is locked
   const openFeaturesCount = features.filter(f => f.status !== 'done').length;
   const isScopeLocked = project ? openFeaturesCount >= project.feature_limit : false;
+  const statusInfo = project ? computeProjectStatus(features, project.feature_limit) : null;
 
   const handleCreateFeature = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -210,9 +212,16 @@ export default function ProjectDetail() {
           >
             ← Back to Projects
           </button>
-          <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50">
-            {project.name}
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50">
+              {project.name}
+            </h1>
+            {statusInfo && (
+              <span className={`rounded-md px-3 py-1 text-sm font-semibold ${statusInfo.color} ${statusInfo.textColor}`}>
+                {statusInfo.status}
+              </span>
+            )}
+          </div>
           <div className="mt-2 flex flex-wrap gap-4 text-sm text-zinc-600 dark:text-zinc-400">
             <span>Deadline: {new Date(project.deadline).toLocaleDateString()}</span>
             <span>Feature Limit: {project.feature_limit}</span>

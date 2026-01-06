@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import type { User } from '@supabase/supabase-js';
-import type { Project } from '@/lib/types';
+import type { Project, Feature } from '@/lib/types';
+import { computeProjectStatus } from '@/lib/projectStatus';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -12,6 +13,7 @@ export default function App() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(false);
   const [projectsError, setProjectsError] = useState<string | null>(null);
+  const [projectFeatures, setProjectFeatures] = useState<Record<string, Feature[]>>({});
   const [formData, setFormData] = useState({
     name: '',
     deadline: '',
@@ -50,6 +52,35 @@ export default function App() {
     };
   }, [router]);
 
+  const fetchAllProjectFeatures = useCallback(async (projectIds: string[]) => {
+    try {
+      const { data, error } = await supabase
+        .from('features')
+        .select('*')
+        .in('project_id', projectIds)
+        .eq('user_id', user?.id);
+
+      if (error) {
+        console.error('Error fetching features:', error);
+        return;
+      }
+
+      // Group features by project_id
+      const featuresByProject: Record<string, Feature[]> = {};
+      projectIds.forEach(id => {
+        featuresByProject[id] = [];
+      });
+      
+      data?.forEach((feature: Feature) => {
+        featuresByProject[feature.project_id].push(feature);
+      });
+
+      setProjectFeatures(featuresByProject);
+    } catch (error) {
+      console.error('Failed to fetch project features:', error);
+    }
+  }, [user?.id]);
+
   const fetchProjects = useCallback(async () => {
     setProjectsLoading(true);
     setProjectsError(null);
@@ -65,13 +96,17 @@ export default function App() {
         setProjectsError(error.message);
       } else {
         setProjects(data || []);
+        // Fetch features for all projects
+        if (data && data.length > 0) {
+          await fetchAllProjectFeatures(data.map(p => p.id));
+        }
       }
     } catch {
       setProjectsError('Failed to fetch projects');
     } finally {
       setProjectsLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, fetchAllProjectFeatures]);
 
   // Fetch projects when user is loaded
   useEffect(() => {
@@ -79,6 +114,16 @@ export default function App() {
       fetchProjects();
     }
   }, [user, fetchProjects]);
+
+  // Memoize project status computations to avoid recalculating on every render
+  const projectStatuses = useMemo(() => {
+    const statuses: Record<string, ReturnType<typeof computeProjectStatus>> = {};
+    projects.forEach(project => {
+      const features = projectFeatures[project.id] || [];
+      statuses[project.id] = computeProjectStatus(features, project.feature_limit);
+    });
+    return statuses;
+  }, [projects, projectFeatures]);
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -257,33 +302,42 @@ export default function App() {
 
           {!projectsLoading && !projectsError && projects.length > 0 && (
             <div className="space-y-4">
-              {projects.map((project) => (
-                <div
-                  key={project.id}
-                  className="flex items-center justify-between rounded-lg border border-zinc-200 p-4 dark:border-zinc-700"
-                >
+              {projects.map((project) => {
+                const statusInfo = projectStatuses[project.id];
+                
+                return (
                   <div
-                    className="flex-1 cursor-pointer"
-                    onClick={() => router.push(`/projects/${project.id}`)}
+                    key={project.id}
+                    className="flex items-center justify-between rounded-lg border border-zinc-200 p-4 dark:border-zinc-700"
                   >
-                    <h3 className="font-semibold text-zinc-900 hover:text-zinc-700 dark:text-zinc-50 dark:hover:text-zinc-300">
-                      {project.name}
-                    </h3>
-                    <div className="mt-1 flex flex-wrap gap-4 text-sm text-zinc-600 dark:text-zinc-400">
-                      <span>
-                        Deadline: {new Date(project.deadline).toLocaleDateString()}
-                      </span>
-                      <span>Feature Limit: {project.feature_limit}</span>
+                    <div
+                      className="flex-1 cursor-pointer"
+                      onClick={() => router.push(`/projects/${project.id}`)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-zinc-900 hover:text-zinc-700 dark:text-zinc-50 dark:hover:text-zinc-300">
+                          {project.name}
+                        </h3>
+                        <span className={`rounded-md px-2 py-1 text-xs font-semibold ${statusInfo.color} ${statusInfo.textColor}`}>
+                          {statusInfo.status}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex flex-wrap gap-4 text-sm text-zinc-600 dark:text-zinc-400">
+                        <span>
+                          Deadline: {new Date(project.deadline).toLocaleDateString()}
+                        </span>
+                        <span>Feature Limit: {project.feature_limit}</span>
+                      </div>
                     </div>
+                    <button
+                      onClick={() => handleDeleteProject(project.id)}
+                      className="ml-4 rounded-md bg-red-600 px-3 py-1 text-sm font-semibold text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                    >
+                      Delete
+                    </button>
                   </div>
-                  <button
-                    onClick={() => handleDeleteProject(project.id)}
-                    className="ml-4 rounded-md bg-red-600 px-3 py-1 text-sm font-semibold text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-                  >
-                    Delete
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
