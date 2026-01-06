@@ -1,6 +1,44 @@
 # ScopeLock
 A simple tool that enforces scope limits so builders actually ship.
 
+## Database Setup
+
+### Features Table
+
+To enable the Features CRUD functionality with ScopeLock enforcement, you need to create the `features` table in your Supabase database.
+
+1. Go to your Supabase Dashboard
+2. Navigate to the SQL Editor
+3. Run the SQL script from `features-table.sql`:
+
+```sql
+-- Features table schema for ScopeLock
+-- This table stores features for each project with status tracking
+
+CREATE TABLE features (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES auth.users(id),
+  project_id uuid REFERENCES projects(id),
+  title text NOT NULL,
+  status text NOT NULL DEFAULT 'planned' CHECK (status IN ('planned', 'in_progress', 'done')),
+  created_at timestamptz DEFAULT now()
+);
+
+-- Enable RLS
+ALTER TABLE features ENABLE ROW LEVEL SECURITY;
+
+-- Policies
+CREATE POLICY "feature_isolation" ON features
+  FOR ALL
+  USING (user_id = auth.uid());
+```
+
+The table includes:
+- Row Level Security (RLS) enabled to ensure users can only access their own features
+- A policy that enforces `user_id = auth.uid()` for all operations
+- Foreign key constraints to ensure data integrity
+- Status validation through CHECK constraint
+
 ## Getting Started
 
 ### Prerequisites
