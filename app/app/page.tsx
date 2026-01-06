@@ -204,7 +204,7 @@ export default function App() {
                   {blockedProjects.length} {blockedProjects.length === 1 ? 'Project is' : 'Projects are'} Blocked
                 </h3>
                 <p className="mt-2 text-base font-semibold text-red-800 dark:text-red-300">
-                  You are blocked because you chose too many open features. You chose this limit. Finish something to continue.
+                  You are blocked because you chose too many open features for your limit. Finish something to continue.
                 </p>
                 <ul className="mt-3 list-disc list-inside space-y-1 text-sm text-red-800 dark:text-red-300">
                   {blockedProjects.map(project => (
