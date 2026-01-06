@@ -60,7 +60,7 @@ export default function ProjectDetail() {
         .from('projects')
         .select('*')
         .eq('id', projectId)
-        .eq('user_id', user.id)
+        .eq('user_id', user?.id)
         .single();
 
       if (error) {
@@ -85,7 +85,7 @@ export default function ProjectDetail() {
         .from('features')
         .select('*')
         .eq('project_id', projectId)
-        .eq('user_id', user.id)
+        .eq('user_id', user?.id)
         .order('created_at', { ascending: false });
 
       if (error) {
