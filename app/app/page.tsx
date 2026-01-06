@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import type { User } from '@supabase/supabase-js';
@@ -50,15 +50,7 @@ export default function App() {
     };
   }, [router]);
 
-  // Fetch projects when user is loaded
-  useEffect(() => {
-    if (user) {
-      fetchProjects();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
-
-  const fetchProjects = async () => {
+  const fetchProjects = useCallback(async () => {
     setProjectsLoading(true);
     setProjectsError(null);
 
@@ -79,7 +71,14 @@ export default function App() {
     } finally {
       setProjectsLoading(false);
     }
-  };
+  }, [user?.id]);
+
+  // Fetch projects when user is loaded
+  useEffect(() => {
+    if (user) {
+      fetchProjects();
+    }
+  }, [user, fetchProjects]);
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -213,7 +212,7 @@ export default function App() {
                 required
                 min="1"
                 value={formData.feature_limit}
-                onChange={(e) => setFormData({ ...formData, feature_limit: parseInt(e.target.value) || 1 })}
+                onChange={(e) => setFormData({ ...formData, feature_limit: Math.max(1, parseInt(e.target.value) || 1) })}
                 className="mt-1 block w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 placeholder-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:placeholder-zinc-500"
               />
             </div>
