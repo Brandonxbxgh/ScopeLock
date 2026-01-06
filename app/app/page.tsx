@@ -210,8 +210,10 @@ export default function App() {
                   {blockedProjects.map(project => (
                     <li key={project.id} className="font-medium">
                       <button
+                        type="button"
                         onClick={() => router.push(`/projects/${project.id}`)}
-                        className="hover:underline cursor-pointer"
+                        className="hover:underline"
+                        aria-label={`View details for ${project.name}`}
                       >
                         {project.name}
                       </button>
