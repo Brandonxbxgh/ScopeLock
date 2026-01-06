@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import type { User } from '@supabase/supabase-js';
@@ -72,11 +72,7 @@ export default function App() {
       });
       
       data?.forEach((feature: Feature) => {
-        if (featuresByProject[feature.project_id]) {
-          featuresByProject[feature.project_id].push(feature);
-        } else {
-          featuresByProject[feature.project_id] = [feature];
-        }
+        featuresByProject[feature.project_id].push(feature);
       });
 
       setProjectFeatures(featuresByProject);
@@ -118,6 +114,16 @@ export default function App() {
       fetchProjects();
     }
   }, [user, fetchProjects]);
+
+  // Memoize project status computations to avoid recalculating on every render
+  const projectStatuses = useMemo(() => {
+    const statuses: Record<string, ReturnType<typeof computeProjectStatus>> = {};
+    projects.forEach(project => {
+      const features = projectFeatures[project.id] || [];
+      statuses[project.id] = computeProjectStatus(features, project.feature_limit);
+    });
+    return statuses;
+  }, [projects, projectFeatures]);
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -297,8 +303,7 @@ export default function App() {
           {!projectsLoading && !projectsError && projects.length > 0 && (
             <div className="space-y-4">
               {projects.map((project) => {
-                const features = projectFeatures[project.id] || [];
-                const statusInfo = computeProjectStatus(features, project.feature_limit);
+                const statusInfo = projectStatuses[project.id];
                 
                 return (
                   <div
