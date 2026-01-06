@@ -21,6 +21,14 @@ export function computeProjectStatus(
   features: Feature[],
   featureLimit: number
 ): ProjectStatusInfo {
+  // Validate inputs
+  if (!features || !Array.isArray(features)) {
+    features = [];
+  }
+  if (!featureLimit || featureLimit < 1) {
+    featureLimit = 1;
+  }
+
   const totalFeatures = features.length;
   const openFeatures = features.filter(f => f.status !== 'done');
   const openFeaturesCount = openFeatures.length;
