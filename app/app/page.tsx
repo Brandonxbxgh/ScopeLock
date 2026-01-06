@@ -208,7 +208,14 @@ export default function App() {
                 </p>
                 <ul className="mt-3 list-disc list-inside space-y-1 text-sm text-red-800 dark:text-red-300">
                   {blockedProjects.map(project => (
-                    <li key={project.id} className="font-medium">{project.name}</li>
+                    <li key={project.id} className="font-medium">
+                      <button
+                        onClick={() => router.push(`/projects/${project.id}`)}
+                        className="hover:underline cursor-pointer"
+                      >
+                        {project.name}
+                      </button>
+                    </li>
                   ))}
                 </ul>
               </div>
