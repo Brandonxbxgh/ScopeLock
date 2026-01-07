@@ -263,17 +263,23 @@ export default function App() {
                   ) : (
                     <>
                       The following projects have reached their feature limits:{' '}
-                      {blockedProjects.map((project, index) => (
-                        <span key={project.id}>
-                          {index > 0 && (index === blockedProjects.length - 1 ? ', and ' : ', ')}
-                          <button
-                            onClick={() => router.push(`/projects/${project.id}`)}
-                            className="font-medium underline hover:no-underline"
-                          >
-                            {project.name}
-                          </button>
-                        </span>
-                      ))}
+                      {blockedProjects.map((project, index) => {
+                        const isLast = index === blockedProjects.length - 1;
+                        const isFirst = index === 0;
+                        const separator = isFirst ? '' : isLast ? ', and ' : ', ';
+                        
+                        return (
+                          <span key={project.id}>
+                            {separator}
+                            <button
+                              onClick={() => router.push(`/projects/${project.id}`)}
+                              className="font-medium underline hover:no-underline"
+                            >
+                              {project.name}
+                            </button>
+                          </span>
+                        );
+                      })}
                       . Mark features as done to continue.
                     </>
                   )}
