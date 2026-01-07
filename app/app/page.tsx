@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import type { User } from '@supabase/supabase-js';
@@ -14,6 +14,7 @@ export default function App() {
   const [projectFeatures, setProjectFeatures] = useState<Record<string, Feature[]>>({});
   const [projectsLoading, setProjectsLoading] = useState(false);
   const [projectsError, setProjectsError] = useState<string | null>(null);
+  const [projectFeatures, setProjectFeatures] = useState<Record<string, Feature[]>>({});
   const [formData, setFormData] = useState({
     name: '',
     deadline: '',
@@ -51,6 +52,35 @@ export default function App() {
       subscription.unsubscribe();
     };
   }, [router]);
+
+  const fetchAllProjectFeatures = useCallback(async (projectIds: string[]) => {
+    try {
+      const { data, error } = await supabase
+        .from('features')
+        .select('*')
+        .in('project_id', projectIds)
+        .eq('user_id', user?.id);
+
+      if (error) {
+        console.error('Error fetching features:', error);
+        return;
+      }
+
+      // Group features by project_id
+      const featuresByProject: Record<string, Feature[]> = {};
+      projectIds.forEach(id => {
+        featuresByProject[id] = [];
+      });
+      
+      data?.forEach((feature: Feature) => {
+        featuresByProject[feature.project_id].push(feature);
+      });
+
+      setProjectFeatures(featuresByProject);
+    } catch (error) {
+      console.error('Failed to fetch project features:', error);
+    }
+  }, [user?.id]);
 
   const fetchProjects = useCallback(async () => {
     setProjectsLoading(true);
@@ -106,7 +136,7 @@ export default function App() {
     } finally {
       setProjectsLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, fetchAllProjectFeatures]);
 
   // Fetch projects when user is loaded
   useEffect(() => {
@@ -114,6 +144,16 @@ export default function App() {
       fetchProjects();
     }
   }, [user, fetchProjects]);
+
+  // Memoize project status computations to avoid recalculating on every render
+  const projectStatuses = useMemo(() => {
+    const statuses: Record<string, ReturnType<typeof computeProjectStatus>> = {};
+    projects.forEach(project => {
+      const features = projectFeatures[project.id] || [];
+      statuses[project.id] = computeProjectStatus(features, project.feature_limit);
+    });
+    return statuses;
+  }, [projects, projectFeatures]);
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
